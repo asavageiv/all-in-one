@@ -235,13 +235,6 @@ readonly class DockerActionManager {
         }
 
         $envs = $container->GetEnvironmentVariables()->GetVariables();
-        // Special thing for the nextcloud container
-        if ($container->GetIdentifier() === 'nextcloud-aio-nextcloud') {
-            $envs[] = $this->GetAllNextcloudExecCommands();
-        }
-        foreach ($envs as $key => $env) {
-            $envs[$key] = $this->replaceEnvPlaceholders($env);
-        }
 
         if (count($envs) > 0) {
             $requestBody['Env'] = $envs;
@@ -466,88 +459,6 @@ readonly class DockerActionManager {
         }
     }
 
-    // Replaces placeholders in $envValue with their values.
-    // E.g. "%NC_DOMAIN%:%APACHE_PORT" becomes "my.nextcloud.com:11000"
-    private function replaceEnvPlaceholders(string $envValue): string {
-        // $pattern breaks down as:
-        // % - matches a literal percent sign
-        // ([^%]+) - capture group that matches one or more characters that are NOT percent signs
-        // % - matches the closing percent sign
-        //
-        // Assumes literal percent signs are always matched and there is no
-        // escaping.
-        $pattern = '/%([^%]+)%/';
-        $matchCount = preg_match_all($pattern, $envValue, $matches);
-        if ($matchCount > 0) {
-            $placeholders = $matches[0]; // ["%PLACEHOLDER1%", "%PLACEHOLDER2%", ...]
-            $placeholderNames = $matches[1]; // ["PLACEHOLDER1", "PLACEHOLDER2", ...]
-            $placeholderToPattern = fn(string $p): string => '/' . $p . '/';
-            $placeholderPatterns = array_map($placeholderToPattern, $placeholders); // ["/%PLACEHOLDER1%/", ...]
-            $placeholderValues = array_map([$this, 'getPlaceholderValue'], $placeholderNames); // ["val1", "val2"]
-            // Guaranteed to be non-null because we found the placeholders in the preg_match_all.
-            $result = (string) preg_replace($placeholderPatterns, $placeholderValues, $envValue);
-            return $result;
-        }
-        return $envValue;
-    }
-
-    private function getPlaceholderValue(string $placeholder) : string {
-        return match ($placeholder) {
-            'NC_DOMAIN' => $this->configurationManager->GetDomain(),
-            'NC_BASE_DN' => $this->configurationManager->GetBaseDN(),
-            'AIO_TOKEN' => $this->configurationManager->GetToken(),
-            'BORGBACKUP_REMOTE_REPO' => $this->configurationManager->GetBorgRemoteRepo(),
-            'BORGBACKUP_MODE' => $this->configurationManager->GetBackupMode(),
-            'AIO_URL' => $this->configurationManager->GetAIOURL(),
-            'SELECTED_RESTORE_TIME' => $this->configurationManager->GetSelectedRestoreTime(),
-            'RESTORE_EXCLUDE_PREVIEWS' => $this->configurationManager->GetRestoreExcludePreviews(),
-            'APACHE_PORT' => $this->configurationManager->GetApachePort(),
-            'TALK_PORT' => $this->configurationManager->GetTalkPort(),
-            'NEXTCLOUD_MOUNT' => $this->configurationManager->GetNextcloudMount(),
-            'BACKUP_RESTORE_PASSWORD' => $this->configurationManager->GetBorgRestorePassword(),
-            'CLAMAV_ENABLED' => $this->configurationManager->isClamavEnabled() ? 'yes' : '',
-            'TALK_RECORDING_ENABLED' => $this->configurationManager->isTalkRecordingEnabled() ? 'yes' : '',
-            'ONLYOFFICE_ENABLED' => $this->configurationManager->isOnlyofficeEnabled() ? 'yes' : '',
-            'COLLABORA_ENABLED' => $this->configurationManager->isCollaboraEnabled() ? 'yes' : '',
-            'TALK_ENABLED' => $this->configurationManager->isTalkEnabled() ? 'yes' : '',
-            'UPDATE_NEXTCLOUD_APPS' => ($this->configurationManager->isDailyBackupRunning() && $this->configurationManager->areAutomaticUpdatesEnabled()) ? 'yes' : '',
-            'TIMEZONE' => $this->configurationManager->GetTimezone() === '' ? 'Etc/UTC' : $this->configurationManager->GetTimezone(),
-            'COLLABORA_DICTIONARIES' => $this->configurationManager->GetCollaboraDictionaries() === '' ? 'de_DE en_GB en_US es_ES fr_FR it nl pt_BR pt_PT ru' : $this->configurationManager->GetCollaboraDictionaries(),
-            'IMAGINARY_ENABLED' => $this->configurationManager->isImaginaryEnabled() ? 'yes' : '',
-            'FULLTEXTSEARCH_ENABLED' => $this->configurationManager->isFulltextsearchEnabled() ? 'yes' : '',
-            'DOCKER_SOCKET_PROXY_ENABLED' => $this->configurationManager->isDockerSocketProxyEnabled() ? 'yes' : '',
-            'NEXTCLOUD_UPLOAD_LIMIT' => $this->configurationManager->GetNextcloudUploadLimit(),
-            'NEXTCLOUD_MEMORY_LIMIT' => $this->configurationManager->GetNextcloudMemoryLimit(),
-            'NEXTCLOUD_MAX_TIME' => $this->configurationManager->GetNextcloudMaxTime(),
-            'BORG_RETENTION_POLICY' => $this->configurationManager->GetBorgRetentionPolicy(),
-            'FULLTEXTSEARCH_JAVA_OPTIONS' => $this->configurationManager->GetFulltextsearchJavaOptions(),
-            'NEXTCLOUD_TRUSTED_CACERTS_DIR' => $this->configurationManager->GetTrustedCacertsDir(),
-            'ADDITIONAL_DIRECTORIES_BACKUP' => $this->configurationManager->GetAdditionalBackupDirectoriesString() !== '' ? 'yes' : '',
-            'BORGBACKUP_HOST_LOCATION' => $this->configurationManager->GetBorgBackupHostLocation(),
-            'APACHE_MAX_SIZE' => (string)($this->configurationManager->GetApacheMaxSize()),
-            'COLLABORA_SECCOMP_POLICY' => $this->configurationManager->GetCollaboraSeccompPolicy(),
-            'NEXTCLOUD_STARTUP_APPS' => $this->configurationManager->GetNextcloudStartupApps(),
-            'NEXTCLOUD_ADDITIONAL_APKS' => $this->configurationManager->GetNextcloudAdditionalApks(),
-            'NEXTCLOUD_ADDITIONAL_PHP_EXTENSIONS' => $this->configurationManager->GetNextcloudAdditionalPhpExtensions(),
-            'INSTALL_LATEST_MAJOR' => $this->configurationManager->shouldLatestMajorGetInstalled() ? 'yes' : '',
-            'REMOVE_DISABLED_APPS' => $this->configurationManager->shouldDisabledAppsGetRemoved() ? 'yes' : '',
-            // Allow to get local ip-address of database container which allows to talk to it even in host mode (the container that requires this needs to be started first then)
-            'AIO_DATABASE_HOST' => gethostbyname('nextcloud-aio-database'),
-            // Allow to get local ip-address of caddy container and add it to trusted proxies automatically
-            'CADDY_IP_ADDRESS' => in_array('caddy', $this->configurationManager->GetEnabledCommunityContainers(), true) ? gethostbyname('nextcloud-aio-caddy') : '',
-            'WHITEBOARD_ENABLED' => $this->configurationManager->isWhiteboardEnabled() ? 'yes' : '',
-            default => $this->getSecretOrThrow($placeholder),
-        };
-    }
-
-    private function getSecretOrThrow(string $secretName): string {
-        $secret = $this->configurationManager->GetSecret($secretName);
-        if ($secret === "") {
-            throw new \Exception("The secret " . $secretName . " is empty. Cannot substitute its value. Please check if it is defined in secrets of containers.json.");
-        }
-        return $secret;
-    }
-
     private function isContainerUpdateAvailable(string $id): string {
         $container = $this->containerDefinitionFetcher->GetContainerById($id);
 
@@ -592,24 +503,6 @@ readonly class DockerActionManager {
         $id = 'nextcloud-aio-apache';
         $backupVolumesArray = explode(' ', $this->getBackupVolumes($id));
         return array_unique($backupVolumesArray);
-    }
-
-    private function GetNextcloudExecCommands(string $id): string {
-        $container = $this->containerDefinitionFetcher->GetContainerById($id);
-
-        $nextcloudExecCommands = '';
-        foreach ($container->GetNextcloudExecCommands() as $execCommand) {
-            $nextcloudExecCommands .= $execCommand . PHP_EOL;
-        }
-        foreach ($container->GetDependsOn() as $dependency) {
-            $nextcloudExecCommands .= $this->GetNextcloudExecCommands($dependency);
-        }
-        return $nextcloudExecCommands;
-    }
-
-    private function GetAllNextcloudExecCommands(): string {
-        $id = 'nextcloud-aio-apache';
-        return 'NEXTCLOUD_EXEC_COMMANDS=' . $this->GetNextcloudExecCommands($id);
     }
 
     private function GetRepoDigestsOfContainer(string $containerName): ?array {

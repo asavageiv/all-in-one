@@ -18,23 +18,27 @@ readonly class ContainerDefinitionFetcher {
         private ConfigurationManager $configurationManager,
         private \DI\Container $container
     ) {
+        error_log("Constructed ContainerDefinitionFetcher");
     }
 
     public function GetContainerById(string $id): Container
     {
         $containers = $this->FetchDefinition();
 
-        foreach ($containers as $container) {
-            if ($container->GetIdentifier() === $id) {
-                return $container;
-            }
-        }
+        return $this->GetContainerOrThrow($containers, $id);
+    }
 
-        throw new \Exception("The provided id " . $id . " was not found in the container definition.");
+    private function GetContainerOrThrow(array $containers, string $id): Container
+    {
+        if (isset($containers[$id])) {
+            return $containers[$id];
+        } else {
+            throw new \Exception("The provided id " . $id . " was not found in the container definition.");
+        }
     }
 
     /**
-     * @return array
+     * @return Container[]
      */
     private function GetDefinition(): array
     {
@@ -53,6 +57,7 @@ readonly class ContainerDefinitionFetcher {
             }
         }
 
+        /** @var Container[] */
         $containers = [];
         foreach ($data['aio_services_v1'] as $entry) {
             if ($entry['container_name'] === 'nextcloud-aio-clamav') {
@@ -207,8 +212,9 @@ readonly class ContainerDefinitionFetcher {
 
             $variables = new ContainerEnvironmentVariables();
             if (isset($entry['environment'])) {
-                foreach ($entry['environment'] as $value) {
-                    $variables->AddVariable($value);
+                foreach ($entry['environment'] as $envWithPlaceholders) {
+                    $env = $this->replacePlaceholders($envWithPlaceholders);
+                    $variables->AddVariable($env);
                 }
             }
 
@@ -309,7 +315,7 @@ readonly class ContainerDefinitionFetcher {
                 $documentation = $entry['documentation'];
             }
 
-            $containers[] = new Container(
+            $container = new Container(
                 $entry['container_name'],
                 $displayName,
                 $entry['image'],
@@ -337,13 +343,74 @@ readonly class ContainerDefinitionFetcher {
                 $documentation,
                 $this->container->get(DockerActionManager::class)
             );
+            $containers[$container->GetIdentifier()] = $container;
         }
+
+        // Because the nextcloud_exec_commands are defined on each container
+        // entry in containers.json and we need to traverse the dependencies
+        // of nextcloud-aio-apache, we collect the commands at the end.
+        $this->SetNextcloudExecCommands($containers);
 
         return $containers;
     }
 
+    /**
+     * @return Container[]
+     */
     public function FetchDefinition(): array
     {
         return $this->GetDefinition();
+    }
+
+    private function GetNextcloudExecCommands(string $id, array $containers): string {
+        /** @var Container */
+        $container = $this->GetContainerOrThrow($containers, $id);
+
+        $nextcloudExecCommands = '';
+        foreach ($container->GetNextcloudExecCommands() as $execCommand) {
+            $nextcloudExecCommands .= $execCommand . PHP_EOL;
+        }
+        foreach ($container->GetDependsOn() as $dependency) {
+            $nextcloudExecCommands .= $this->GetNextcloudExecCommands($dependency, $containers);
+        }
+        return $nextcloudExecCommands;
+    }
+
+    /**
+     * @param Container[] $containers
+     */
+    private function SetNextcloudExecCommands(array $containers): void {
+        $topContainerId = 'nextcloud-aio-apache';
+        $commandStr = $this->GetNextcloudExecCommands($topContainerId, $containers);
+        if ($commandStr !== '') {
+            $var = 'NEXTCLOUD_EXEC_COMMANDS=' . $commandStr;
+            $ncContainer = $this->GetContainerOrThrow($containers, 'nextcloud-aio-nextcloud');
+            $ncContainer->GetEnvironmentVariables()->AddVariable($var);
+        }
+    }
+
+    // Replaces placeholders in $envValue with their values.
+    // E.g. "%NC_DOMAIN%:%APACHE_PORT" becomes "my.nextcloud.com:11000"
+    private function replacePlaceholders(string $envValue): string {
+        // $pattern breaks down as:
+        // % - matches a literal percent sign
+        // ([^%]+) - capture group that matches one or more characters that are NOT percent signs
+        // % - matches the closing percent sign
+        //
+        // Assumes literal percent signs are always matched and there is no
+        // escaping.
+        $pattern = '/%([^%]+)%/';
+        $matchCount = preg_match_all($pattern, $envValue, $matches);
+        if ($matchCount > 0) {
+            $placeholders = $matches[0]; // ["%PLACEHOLDER1%", "%PLACEHOLDER2%", ...]
+            $placeholderNames = $matches[1]; // ["PLACEHOLDER1", "PLACEHOLDER2", ...]
+            $placeholderToPattern = fn(string $p): string => '/' . $p . '/';
+            $placeholderPatterns = array_map($placeholderToPattern, $placeholders); // ["/%PLACEHOLDER1%/", ...]
+            $placeholderValues = array_map([$this->configurationManager, 'GetPlaceholderValue'], $placeholderNames); // ["val1", "val2"]
+            // Guaranteed to be non-null because we found the placeholders in the preg_match_all.
+            $result = (string) preg_replace($placeholderPatterns, $placeholderValues, $envValue);
+            return $result;
+        }
+        return $envValue;
     }
 }
