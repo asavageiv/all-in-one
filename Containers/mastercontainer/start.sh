@@ -313,9 +313,6 @@ fi
 if [ -n "$NEXTCLOUD_TRUSTED_DOMAINS" ]; then
     print_red "The environmental variable NEXTCLOUD_TRUSTED_DOMAINS has been set which is not supported by AIO. Please remove it!"
 fi
-if [ -n "$TRUSTED_PROXIES" ]; then
-    print_red "The environmental variable TRUSTED_PROXIES has been set which is not supported by AIO. Please remove it!"
-fi
 
 # Add important folders
 mkdir -p /mnt/docker-aio-config/data/
