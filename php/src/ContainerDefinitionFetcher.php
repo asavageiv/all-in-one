@@ -384,8 +384,9 @@ readonly class ContainerDefinitionFetcher {
         $commandStr = $this->GetNextcloudExecCommands($topContainerId, $containers);
         if ($commandStr !== '') {
             $var = 'NEXTCLOUD_EXEC_COMMANDS=' . $commandStr;
+            $env = $this->replacePlaceholders($var);
             $ncContainer = $this->GetContainerOrThrow($containers, 'nextcloud-aio-nextcloud');
-            $ncContainer->GetEnvironmentVariables()->AddVariable($var);
+            $ncContainer->GetEnvironmentVariables()->AddVariable($env);
         }
     }
 
