@@ -13,7 +13,7 @@
         "nextcloud-aio-whiteboard"
       ],
       "display_name": "Apache",
-      "image": "asavageiv/aio-apache",
+      "image": "ghcr.io/nextcloud-releases/aio-apache",
       "user": "33",
       "init": true,
       "healthcheck": {

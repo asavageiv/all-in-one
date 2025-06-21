@@ -580,7 +580,7 @@ readonly class DockerActionManager {
             return $channelName;
         }
 
-        $containerName = 'nextcls /usr/share/bash-completion/completions/peclloud-aio-mastercontainer';
+        $containerName = 'nextcloud-aio-mastercontainer';
         $url = $this->BuildApiUrl(sprintf('containers/%s/json', $containerName));
         try {
             $output = json_decode($this->guzzleClient->get($url)->getBody()->getContents(), true);
@@ -878,8 +878,6 @@ readonly class DockerActionManager {
         $prefix = 'ghcr.io/';
         if (str_starts_with($imageName, $prefix)) {
             return $this->gitHubContainerRegistryManager->GetLatestDigestOfTag(str_replace($prefix, '', $imageName), $tag);
-        } else if (str_starts_with($imageName, 'local/')) {
-            return null;
         } else {
             return $this->dockerHubManager->GetLatestDigestOfTag($imageName, $tag);
         }
