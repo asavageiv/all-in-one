@@ -190,7 +190,7 @@ readonly class DockerController {
         $this->configurationManager->WriteConfig($config);
 
         // Start container
-        $this->startTopContainer(true);
+        $this->startTopContainer(false);
 
         // Clear apcu cache in order to check if container updates are available
         // Temporarily disabled as it leads much faster to docker rate limits

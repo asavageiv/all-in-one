@@ -42,6 +42,7 @@ readonly class ContainerDefinitionFetcher {
      */
     private function GetDefinition(): array
     {
+        error_log("Reading containers.json");
         $data = json_decode(file_get_contents(__DIR__ . '/../containers.json'), true);
 
         $additionalContainerNames = [];
@@ -384,8 +385,9 @@ readonly class ContainerDefinitionFetcher {
         $commandStr = $this->GetNextcloudExecCommands($topContainerId, $containers);
         if ($commandStr !== '') {
             $var = 'NEXTCLOUD_EXEC_COMMANDS=' . $commandStr;
+            $env = $this->replacePlaceholders($var);
             $ncContainer = $this->GetContainerOrThrow($containers, 'nextcloud-aio-nextcloud');
-            $ncContainer->GetEnvironmentVariables()->AddVariable($var);
+            $ncContainer->GetEnvironmentVariables()->AddVariable($env);
         }
     }
 
