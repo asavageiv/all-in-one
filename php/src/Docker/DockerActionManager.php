@@ -543,6 +543,7 @@ readonly class DockerActionManager {
             // Allow to get local ip-address of caddy container and add it to trusted proxies automatically
             'CADDY_IP_ADDRESS' => in_array('caddy', $this->configurationManager->GetEnabledCommunityContainers(), true) ? gethostbyname('nextcloud-aio-caddy') : '',
             'WHITEBOARD_ENABLED' => $this->configurationManager->isWhiteboardEnabled() ? 'yes' : '',
+            'ADDITIONAL_TRUSTED_PROXY' => $this->configurationManager->GetEnvironmentalVariableOrConfig('ADDITIONAL_TRUSTED_PROXY', 'additional_trusted_proxy', ''),
             default => $this->getSecretOrThrow($placeholder),
         };
     }
