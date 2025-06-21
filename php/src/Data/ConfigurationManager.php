@@ -1033,13 +1033,13 @@ class ConfigurationManager
                 if (is_string($fileContents)) {
                     apcu_add($filePath, $fileContents);
                 }
-            } 
+            }
             $json = is_string($fileContents) ? json_decode($fileContents, true) : false;
             if(is_array($json) && is_array($json['aio_services_v1'])) {
                 foreach ($json['aio_services_v1'] as $service) {
                     $documentation = is_string($service['documentation']) ? $service['documentation'] : '';
                     if (is_string($service['display_name'])) {
-                        $cc[$id] = [ 
+                        $cc[$id] = [
                             'id' => $id,
                             'name' => $service['display_name'],
                             'documentation' => $documentation
@@ -1102,5 +1102,63 @@ class ConfigurationManager
         } else {
             return true;
         }
+    }
+
+    public function GetPlaceholderValue(string $name) : string {
+        $name = str_replace('%', '', $name);
+        return match ($name) {
+            'NC_DOMAIN' => $this->GetDomain(),
+            'NC_BASE_DN' => $this->GetBaseDN(),
+            'AIO_TOKEN' => $this->GetToken(),
+            'BORGBACKUP_REMOTE_REPO' => $this->GetBorgRemoteRepo(),
+            'BORGBACKUP_MODE' => $this->GetBackupMode(),
+            'AIO_URL' => $this->GetAIOURL(),
+            'SELECTED_RESTORE_TIME' => $this->GetSelectedRestoreTime(),
+            'RESTORE_EXCLUDE_PREVIEWS' => $this->GetRestoreExcludePreviews(),
+            'APACHE_PORT' => $this->GetApachePort(),
+            'TALK_PORT' => $this->GetTalkPort(),
+            'NEXTCLOUD_MOUNT' => $this->GetNextcloudMount(),
+            'BACKUP_RESTORE_PASSWORD' => $this->GetBorgRestorePassword(),
+            'CLAMAV_ENABLED' => $this->isClamavEnabled() ? 'yes' : '',
+            'TALK_RECORDING_ENABLED' => $this->isTalkRecordingEnabled() ? 'yes' : '',
+            'ONLYOFFICE_ENABLED' => $this->isOnlyofficeEnabled() ? 'yes' : '',
+            'COLLABORA_ENABLED' => $this->isCollaboraEnabled() ? 'yes' : '',
+            'TALK_ENABLED' => $this->isTalkEnabled() ? 'yes' : '',
+            'UPDATE_NEXTCLOUD_APPS' => ($this->isDailyBackupRunning() && $this->areAutomaticUpdatesEnabled()) ? 'yes' : '',
+            'TIMEZONE' => $this->GetTimezone() === '' ? 'Etc/UTC' : $this->GetTimezone(),
+            'COLLABORA_DICTIONARIES' => $this->GetCollaboraDictionaries() === '' ? 'de_DE en_GB en_US es_ES fr_FR it nl pt_BR pt_PT ru' : $this->GetCollaboraDictionaries(),
+            'IMAGINARY_ENABLED' => $this->isImaginaryEnabled() ? 'yes' : '',
+            'FULLTEXTSEARCH_ENABLED' => $this->isFulltextsearchEnabled() ? 'yes' : '',
+            'DOCKER_SOCKET_PROXY_ENABLED' => $this->isDockerSocketProxyEnabled() ? 'yes' : '',
+            'NEXTCLOUD_UPLOAD_LIMIT' => $this->GetNextcloudUploadLimit(),
+            'NEXTCLOUD_MEMORY_LIMIT' => $this->GetNextcloudMemoryLimit(),
+            'NEXTCLOUD_MAX_TIME' => $this->GetNextcloudMaxTime(),
+            'BORG_RETENTION_POLICY' => $this->GetBorgRetentionPolicy(),
+            'FULLTEXTSEARCH_JAVA_OPTIONS' => $this->GetFulltextsearchJavaOptions(),
+            'NEXTCLOUD_TRUSTED_CACERTS_DIR' => $this->GetTrustedCacertsDir(),
+            'ADDITIONAL_DIRECTORIES_BACKUP' => $this->GetAdditionalBackupDirectoriesString() !== '' ? 'yes' : '',
+            'BORGBACKUP_HOST_LOCATION' => $this->GetBorgBackupHostLocation(),
+            'APACHE_MAX_SIZE' => (string)($this->GetApacheMaxSize()),
+            'COLLABORA_SECCOMP_POLICY' => $this->GetCollaboraSeccompPolicy(),
+            'NEXTCLOUD_STARTUP_APPS' => $this->GetNextcloudStartupApps(),
+            'NEXTCLOUD_ADDITIONAL_APKS' => $this->GetNextcloudAdditionalApks(),
+            'NEXTCLOUD_ADDITIONAL_PHP_EXTENSIONS' => $this->GetNextcloudAdditionalPhpExtensions(),
+            'INSTALL_LATEST_MAJOR' => $this->shouldLatestMajorGetInstalled() ? 'yes' : '',
+            'REMOVE_DISABLED_APPS' => $this->shouldDisabledAppsGetRemoved() ? 'yes' : '',
+            // Allow to get local ip-address of database container which allows to talk to it even in host mode (the container that requires this needs to be started first then)
+            'AIO_DATABASE_HOST' => gethostbyname('nextcloud-aio-database'),
+            // Allow to get local ip-address of caddy container and add it to trusted proxies automatically
+            'CADDY_IP_ADDRESS' => in_array('caddy', $this->GetEnabledCommunityContainers(), true) ? gethostbyname('nextcloud-aio-caddy') : '',
+            'WHITEBOARD_ENABLED' => $this->isWhiteboardEnabled() ? 'yes' : '',
+            default => $this->getSecretOrThrow($name),
+        };
+    }
+
+    private function getSecretOrThrow(string $secretName): string {
+        $secret = $this->GetSecret($secretName);
+        if ($secret === "") {
+            throw new \Exception("The secret " . $secretName . " is empty. Cannot substitute its value. Please check if it is defined in secrets of containers.json.");
+        }
+        return $secret;
     }
 }
