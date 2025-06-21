@@ -1150,6 +1150,7 @@ class ConfigurationManager
             // Allow to get local ip-address of caddy container and add it to trusted proxies automatically
             'CADDY_IP_ADDRESS' => in_array('caddy', $this->GetEnabledCommunityContainers(), true) ? gethostbyname('nextcloud-aio-caddy') : '',
             'WHITEBOARD_ENABLED' => $this->isWhiteboardEnabled() ? 'yes' : '',
+            'ADDITIONAL_TRUSTED_PROXY' = > $this->GetEnvironmentalVariableOrConfig('ADDITIONAL_TRUSTED_PROXY'),
             default => $this->getSecretOrThrow($name),
         };
     }

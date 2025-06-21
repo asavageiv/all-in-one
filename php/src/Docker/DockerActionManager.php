@@ -878,6 +878,8 @@ readonly class DockerActionManager {
         $prefix = 'ghcr.io/';
         if (str_starts_with($imageName, $prefix)) {
             return $this->gitHubContainerRegistryManager->GetLatestDigestOfTag(str_replace($prefix, '', $imageName), $tag);
+        } else if (str_starts_with($imageName, 'local/')) {
+            return null;
         } else {
             return $this->dockerHubManager->GetLatestDigestOfTag($imageName, $tag);
         }
