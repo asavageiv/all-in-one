@@ -8,6 +8,8 @@ ENV SOURCE_LOCATION=/usr/src/nextcloud
 ENV REDIS_DB_INDEX=0
 
 # AIO settings start # Do not remove or change this line!
+ARG AIO_GIT_URL="https://github.com/nextcloud-releases/all-in-one.git"
+ARG AIO_GIT_BRANCH="main"
 ENV NEXTCLOUD_VERSION=31.0.7
 ENV AIO_TOKEN=123456
 ENV AIO_URL=localhost
