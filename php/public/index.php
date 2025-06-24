@@ -86,7 +86,10 @@ $app->get('/containers', function (Request $request, Response $response, array $
     // Check if bypass_mastercontainer_update is provided on the URL, a special developer mode to bypass a mastercontainer update and use local image.
     $params = $request->getQueryParams();
     $bypass_mastercontainer_update = isset($params['bypass_mastercontainer_update']);
-    $no_pull_containers = $params['no_pull_containers'] || '';
+    $no_pull_container_ids = '';
+    if (isset($params['no_pull_container_ids'])) {
+        $no_pull_container_ids = $params['no_pull_container_ids'];
+    }
 
     return $view->render($response, 'containers.twig', [
         'domain' => $configurationManager->GetDomain(),
@@ -137,7 +140,7 @@ $app->get('/containers', function (Request $request, Response $response, array $
         'is_whiteboard_enabled' => $configurationManager->isWhiteboardEnabled(),
         'community_containers' => $configurationManager->listAvailableCommunityContainers(),
         'community_containers_enabled' => $configurationManager->GetEnabledCommunityContainers(),
-        'no_pull_containers' => $no_pull_containers,
+        'no_pull_container_ids' => $no_pull_container_ids,
     ]);
 })->setName('profile');
 $app->get('/login', function (Request $request, Response $response, array $args) use ($container) {
