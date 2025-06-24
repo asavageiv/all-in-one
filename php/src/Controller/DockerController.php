@@ -33,7 +33,7 @@ readonly class DockerController {
             return;
         }
 
-        if (in_array($noPullContainerIds)) {
+        if (in_array($id, $noPullContainerIds)) {
             $pullImage = false;
         }
 
