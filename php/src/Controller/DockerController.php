@@ -19,11 +19,11 @@ readonly class DockerController {
     ) {
     }
 
-    private function PerformRecursiveContainerStart(string $id, bool $pullImage = true) : void {
+    private function PerformRecursiveContainerStart(string $id, bool $pullImage = true, array $noPullContainers = []) : void {
         $container = $this->containerDefinitionFetcher->GetContainerById($id);
 
         foreach($container->GetDependsOn() as $dependency) {
-            $this->PerformRecursiveContainerStart($dependency, $pullImage);
+            $this->PerformRecursiveContainerStart($dependency, $pullImage, $noPullContainers);
         }
 
         // Don't start if container is already running
@@ -31,6 +31,10 @@ readonly class DockerController {
         if ($container->GetRunningState() === ContainerState::Running) {
             error_log('Not starting ' . $id . ' because it was already started.');
             return;
+        }
+
+        if (in_array($noPullContainers)) {
+            $pullImage = false;
         }
 
         // Skip database image pull if the last shutdown was not clean
@@ -174,7 +178,8 @@ readonly class DockerController {
             $port = 443;
         }
 
-        if (isset($request->getParsedBody()['install_latest_major'])) {
+        $parsedBody = $request->getParsedBody();
+        if (isset($parsedBody['install_latest_major'])) {
             $installLatestMajor = 31;
         } else {
             $installLatestMajor = "";
@@ -189,8 +194,12 @@ readonly class DockerController {
         $config['install_latest_major'] = $installLatestMajor;
         $this->configurationManager->WriteConfig($config);
 
+        $noPullContainers = [];
+        if (isset($parsedBody['no_pull_containers'])) {
+            $noPullContainers = explode(',', $parsedBody['no_pull_containers']);
+        }
         // Start container
-        $this->startTopContainer(false);
+        $this->startTopContainer(true, $noPullContainers);
 
         // Clear apcu cache in order to check if container updates are available
         // Temporarily disabled as it leads much faster to docker rate limits
@@ -199,7 +208,7 @@ readonly class DockerController {
         return $response->withStatus(201)->withHeader('Location', '/');
     }
 
-    public function startTopContainer(bool $pullImage) : void {
+    public function startTopContainer(bool $pullImage, array $noPullContainers = []) : void {
         $config = $this->configurationManager->GetConfig();
         // set AIO_TOKEN
         $config['AIO_TOKEN'] = bin2hex(random_bytes(24));
@@ -210,7 +219,7 @@ readonly class DockerController {
 
         $id = self::TOP_CONTAINER;
 
-        $this->PerformRecursiveContainerStart($id, $pullImage);
+        $this->PerformRecursiveContainerStart($id, $pullImage, $noPullContainers);
     }
 
     public function StartWatchtowerContainer(Request $request, Response $response, array $args) : Response {
