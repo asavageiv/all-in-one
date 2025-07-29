@@ -313,12 +313,15 @@ fi
 if [ -n "$NEXTCLOUD_TRUSTED_DOMAINS" ]; then
     print_red "The environmental variable NEXTCLOUD_TRUSTED_DOMAINS has been set which is not supported by AIO. Please remove it!"
 fi
+if [ -n "$TRUSTED_PROXIES" ]; then
+    print_red "The environmental variable TRUSTED_PROXIES has been set which is not supported by AIO. Please remove it!"
+fi
 
 # Add important folders
 mkdir -p /mnt/docker-aio-config/data/
 mkdir -p /mnt/docker-aio-config/session/
 mkdir -p /mnt/docker-aio-config/caddy/
-mkdir -p /mnt/docker-aio-config/certs/ 
+mkdir -p /mnt/docker-aio-config/certs/
 
 # Adjust permissions for all instances
 chmod 770 -R /mnt/docker-aio-config
@@ -375,7 +378,7 @@ rm -f /var/run/apache2/httpd.pid
 # Fix the Caddyfile format
 caddy fmt --overwrite /Caddyfile
 
-# Fix caddy log 
+# Fix caddy log
 chmod 777 /root
 
 # Start supervisord
