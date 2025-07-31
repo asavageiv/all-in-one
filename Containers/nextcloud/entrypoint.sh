@@ -655,15 +655,17 @@ if [ "$COLLABORA_ENABLED" = 'yes' ]; then
         echo "No ipv6-address found for $COLLABORA_HOST."
     fi
     if [ -n "$COLLABORA_ALLOW_LIST" ]; then
-        PRIVATE_IP_RANGES='127.0.0.1/8,192.168.0.0/16,172.16.0.0/12,10.0.0.0/8,fd00::/8,::1'
-        if ! echo "$COLLABORA_ALLOW_LIST" | grep -q "$PRIVATE_IP_RANGES"; then
-            COLLABORA_ALLOW_LIST+=",$PRIVATE_IP_RANGES"
-        fi
-        if [ -n "$ADDITIONAL_TRUSTED_PROXY" ]; then
-            if ! echo "$COLLABORA_ALLOW_LIST" | grep -q "$ADDITIONAL_TRUSTED_PROXY"; then
-                COLLABORA_ALLOW_LIST+=",$ADDITIONAL_TRUSTED_PROXY"
+        PRIVATE_IP_RANGES=(127.0.0.1/8 192.168.0.0/16 172.16.0.0/12 10.0.0.0/8 fd00::/8 ::1)
+        for ip_range in "${PRIVATE_IP_RANGES[@]}"; do
+            if ! echo "$COLLABORA_ALLOW_LIST" | grep -q "$ip_range"; then
+                COLLABORA_ALLOW_LIST+=",$ip_range"
             fi
-        fi
+            if [ -n "$ADDITIONAL_TRUSTED_PROXY" ]; then
+                if ! echo "$COLLABORA_ALLOW_LIST" | grep -q "$ADDITIONAL_TRUSTED_PROXY"; then
+                    COLLABORA_ALLOW_LIST+=",$ADDITIONAL_TRUSTED_PROXY"
+                fi
+            fi
+        done
         php /var/www/html/occ config:app:set richdocuments wopi_allowlist --value="$COLLABORA_ALLOW_LIST"
     else
         echo "Warning: wopi_allowlist is empty which should not be the case!"
