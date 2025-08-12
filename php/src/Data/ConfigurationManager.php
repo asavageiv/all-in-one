@@ -1040,13 +1040,13 @@ class ConfigurationManager
                 if (is_string($fileContents)) {
                     apcu_add($filePath, $fileContents);
                 }
-            } 
+            }
             $json = is_string($fileContents) ? json_decode($fileContents, true) : false;
             if(is_array($json) && is_array($json['aio_services_v1'])) {
                 foreach ($json['aio_services_v1'] as $service) {
                     $documentation = is_string($service['documentation']) ? $service['documentation'] : '';
                     if (is_string($service['display_name'])) {
-                        $cc[$id] = [ 
+                        $cc[$id] = [
                             'id' => $id,
                             'name' => $service['display_name'],
                             'documentation' => $documentation
@@ -1113,8 +1113,17 @@ class ConfigurationManager
 
     public function GetAdditionalTrustedProxy() : string {
         $additionalTrustedProxy = getenv('ADDITIONAL_TRUSTED_PROXY');
+        $caddyCommunityContainerEnabled = in_array('caddy', $this->GetEnabledCommunityContainers(), true);
+
+        if (is_string($additionalTrustedProxy) && $caddyCommunityContainerEnabled) {
+            throw new \Exception("Either ADDITIONAL_TRUSTED_PROXY can be set or the Caddy community container enabled, not both");
+        }
+
         if (is_string($additionalTrustedProxy)) {
             return $additionalTrustedProxy;
+        // Allow to get local ip-address of caddy container and add it to trusted proxies automatically
+        } elseif ($caddyCommunityContainerEnabled) {
+            return gethostbyname('nextcloud-aio-caddy');
         }
         return '';
     }
